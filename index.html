@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pet Roll Arena</title>
+<style>
+  :root {
+    --bg: #14121f; --panel: #1f1c30; --panel2: #2a2640; --text: #ece9ff; --muted: #9c97bd;
+    --accent: #8b6cff; --good: #4ade80; --bad: #f87171; --gold: #facc15;
+    --common: #b0b0b8; --uncommon: #4ade80; --rare: #60a5fa; --epic: #c084fc; --legendary: #fbbf24; --mythic: #f43f5e;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--panel); border-bottom: 1px solid var(--panel2); }
+  h1 { margin: 0; font-size: 20px; }
+  .stats { display: flex; gap: 14px; flex-wrap: wrap; font-weight: 600; }
+  .stats span b { color: var(--gold); }
+  nav { display: flex; gap: 6px; padding: 10px 16px; }
+  nav button { flex: 1; }
+  main { max-width: 900px; margin: 0 auto; padding: 0 16px 40px; }
+  button { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 10px 14px; font: inherit; font-weight: 600; cursor: pointer; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.ghost { background: var(--panel2); }
+  button.active { outline: 2px solid var(--text); }
+  button.small { padding: 4px 8px; font-size: 13px; }
+  .panel { background: var(--panel); border-radius: 12px; padding: 16px; margin-top: 12px; }
+  .hidden { display: none !important; }
+  .center { text-align: center; }
+  .muted { color: var(--muted); font-size: 13px; }
+
+  /* Roll */
+  .roll-box { height: 170px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 12px; background: var(--panel2); margin-bottom: 12px; transition: box-shadow .3s; }
+  .roll-emoji { font-size: 72px; line-height: 1; }
+  .roll-name { margin-top: 8px; font-size: 18px; font-weight: 700; }
+  .roll-btns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .odds { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; margin-top: 12px; }
+  .odds div { background: var(--panel2); border-radius: 6px; padding: 6px 8px; font-size: 13px; }
+
+  /* Pets */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .card { background: var(--panel2); border-radius: 10px; padding: 10px; border: 2px solid transparent; position: relative; }
+  .card.equipped { border-color: var(--gold); }
+  .card .emoji { font-size: 40px; text-align: center; }
+  .card .name { font-weight: 700; text-align: center; }
+  .card .rar { text-align: center; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+  .card .st { font-size: 13px; text-align: center; color: var(--muted); }
+  .card .acts { display: flex; gap: 4px; justify-content: center; margin-top: 6px; }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+
+  /* Battle */
+  .arena { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; }
+  @media (max-width: 600px) { .arena { grid-template-columns: 1fr; } .vs { display: none; } }
+  .fighter { background: var(--panel2); border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; display: flex; gap: 10px; align-items: center; }
+  .fighter.dead { opacity: .35; }
+  .fighter .emoji { font-size: 32px; }
+  .fighter .info { flex: 1; min-width: 0; }
+  .bar { height: 8px; background: #000a; border-radius: 4px; overflow: hidden; margin-top: 4px; }
+  .bar > i { display: block; height: 100%; background: var(--good); transition: width .25s; }
+  .monster .bar > i { background: var(--bad); }
+  .monster .emoji { font-size: 56px; }
+  .vs { font-size: 24px; font-weight: 800; color: var(--muted); }
+  .log { background: #0006; border-radius: 8px; padding: 8px 10px; height: 160px; overflow-y: auto; font-size: 13px; margin-top: 12px; }
+  .log p { margin: 2px 0; }
+  .hit { animation: shake .25s; }
+  @keyframes shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--panel2); padding: 10px 16px; border-radius: 8px; box-shadow: 0 4px 20px #0008; opacity: 0; transition: opacity .3s; pointer-events: none; max-width: calc(100% - 32px); }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎲 Pet Roll Arena</h1>
+  <div class="stats">
+    <span>🪙 <b id="coins">0</b></span>
+    <span>🏰 Stage <b id="stage">1</b></span>
+    <span>🎲 Rolls <b id="rolls">0</b></span>
+  </div>
+</header>
+
+<nav>
+  <button class="ghost" data-tab="roll">🎲 Roll</button>
+  <button class="ghost" data-tab="pets">🐾 Pets</button>
+  <button class="ghost" data-tab="battle">⚔️ Battle</button>
+</nav>
+
+<main>
+  <!-- ROLL -->
+  <section id="tab-roll" class="panel">
+    <div class="roll-box" id="rollBox">
+      <div class="roll-emoji" id="rollEmoji">❔</div>
+      <div class="roll-name" id="rollName">Roll for a pet!</div>
+      <div class="muted" id="rollStats"></div>
+    </div>
+    <div class="roll-btns">
+      <button id="roll1">Roll ×1 (<span id="cost1"></span> 🪙)</button>
+      <button id="roll10">Roll ×10 (<span id="cost10"></span> 🪙)</button>
+    </div>
+    <p class="center muted" id="pityText"></p>
+    <div class="odds" id="odds"></div>
+  </section>
+
+  <!-- PETS -->
+  <section id="tab-pets" class="panel hidden">
+    <div class="toolbar">
+      <span>Team: <b id="teamCount">0</b>/3 equipped</span>
+      <button class="small ghost" id="autoEquip">⭐ Equip best</button>
+      <button class="small ghost" id="sellCommons">💰 Sell all unequipped Common/Uncommon</button>
+    </div>
+    <div class="grid" id="petGrid"></div>
+    <p class="muted center" id="noPets">No pets yet — go roll some!</p>
+  </section>
+
+  <!-- BATTLE -->
+  <section id="tab-battle" class="panel hidden">
+    <div class="arena">
+      <div id="teamSide"></div>
+      <div class="vs">VS</div>
+      <div id="monsterSide"></div>
+    </div>
+    <div class="roll-btns" style="margin-top:12px">
+      <button id="fightBtn">⚔️ Fight!</button>
+      <button id="fleeBtn" class="ghost hidden">🏃 Flee</button>
+    </div>
+    <div class="log" id="log"></div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ---------- Data ----------
+const RARITIES = [
+  { id: 'common',    name: 'Common',    weight: 600, mult: 1,   sell: 10 },
+  { id: 'uncommon',  name: 'Uncommon',  weight: 250, mult: 1.6, sell: 20 },
+  { id: 'rare',      name: 'Rare',      weight: 100, mult: 2.6, sell: 50 },
+  { id: 'epic',      name: 'Epic',      weight: 40,  mult: 4.2, sell: 150 },
+  { id: 'legendary', name: 'Legendary', weight: 9,   mult: 7,   sell: 500 },
+  { id: 'mythic',    name: 'Mythic',    weight: 1,   mult: 12,  sell: 2000 },
+];
+const PETS = {
+  common:    [['🐭','Mouse'],['🐸','Frog'],['🐔','Chicken'],['🐌','Snail'],['🐹','Hamster']],
+  uncommon:  [['🐶','Dog'],['🐱','Cat'],['🐰','Bunny'],['🦆','Duck'],['🐢','Turtle']],
+  rare:      [['🦊','Fox'],['🐺','Wolf'],['🦉','Owl'],['🐼','Panda'],['🦝','Raccoon']],
+  epic:      [['🐯','Tiger'],['🦁','Lion'],['🦈','Shark'],['🦅','Eagle']],
+  legendary: [['🐉','Dragon'],['🦄','Unicorn'],['🐙','Kraken']],
+  mythic:    [['🔥','Phoenix'],['🌌','Cosmic Whale']],
+};
+const MONSTERS = [['👾','Blob'],['🦇','Bat'],['🕷️','Spider'],['🐍','Viper'],['👻','Ghost'],['🧟','Zombie'],['💀','Skeleton'],['👹','Ogre'],['🤖','Golem'],['🧛','Vampire']];
+const BOSSES = [['🐲','Dragon King'],['👿','Demon Lord'],['🦑','Abyss Squid'],['☠️','Lich']];
+const ROLL_COST = 50, PITY = 50, MAX_TEAM = 3;
+const rarity = id => RARITIES.find(r => r.id === id);
+
+// ---------- State ----------
+const SAVE_KEY = 'petRollArena.v1';
+let S = { coins: 150, stage: 1, rolls: 0, pity: 0, nextId: 1, pets: [], equipped: [] };
+try { const raw = localStorage.getItem(SAVE_KEY); if (raw) S = { ...S, ...JSON.parse(raw) }; } catch (e) {}
+const save = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} };
+
+// ---------- Helpers ----------
+const $ = id => document.getElementById(id);
+const rand = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2200); }
+
+function petStats(p) {
+  const r = rarity(p.rarity), lvl = 1 + (p.level - 1) * 0.12;
+  return { atk: Math.round(p.baseAtk * r.mult * lvl), hp: Math.round(p.baseHp * r.mult * lvl) };
+}
+const power = p => { const s = petStats(p); return s.atk * 3 + s.hp; };
+const xpNeeded = lvl => 20 + lvl * 15;
+
+// ---------- Rolling ----------
+function rollRarity(forceEpic) {
+  const pool = forceEpic ? RARITIES.filter(r => r.weight <= 40) : RARITIES;
+  const total = pool.reduce((s, r) => s + r.weight, 0);
+  let n = Math.random() * total;
+  for (const r of pool) { if ((n -= r.weight) < 0) return r; }
+  return pool[0];
+}
+function makePet() {
+  S.rolls++; S.pity++;
+  const r = rollRarity(S.pity >= PITY);
+  if (['epic','legendary','mythic'].includes(r.id)) S.pity = 0;
+  const [emoji, name] = pick(PETS[r.id]);
+  const pet = { id: S.nextId++, emoji, name, rarity: r.id, level: 1, xp: 0, baseAtk: rand(4, 7), baseHp: rand(24, 34) };
+  S.pets.push(pet);
+  if (S.equipped.length < MAX_TEAM) S.equipped.push(pet.id);
+  return pet;
+}
+const freeRoll = () => S.pets.length === 0 && S.coins < ROLL_COST;
+
+let rolling = false;
+function doRoll(count) {
+  if (rolling) return;
+  const free = count === 1 && freeRoll();
+  const cost = ROLL_COST * count;
+  if (!free && S.coins < cost) return toast('Not enough coins! Fight monsters to earn more.');
+  if (!free) S.coins -= cost;
+  rolling = true; render();
+  const box = $('rollBox'), all = Object.values(PETS).flat();
+  box.style.boxShadow = 'none'; $('rollName').textContent = 'Rolling...'; $('rollStats').textContent = '';
+  let ticks = 0;
+  const spin = setInterval(() => {
+    $('rollEmoji').textContent = pick(all)[0];
+    if (++ticks < 14) return;
+    clearInterval(spin);
+    const results = Array.from({ length: count }, makePet);
+    const best = results.reduce((a, b) => RARITIES.findIndex(r => r.id === b.rarity) > RARITIES.findIndex(r => r.id === a.rarity) ? b : a);
+    const color = `var(--${best.rarity})`;
+    $('rollEmoji').textContent = best.emoji;
+    $('rollName').innerHTML = `<span style="color:${color}">${rarity(best.rarity).name} ${best.name}</span>`;
+    const st = petStats(best);
+    $('rollStats').textContent = count > 1
+      ? results.map(p => p.emoji).join(' ')
+      : `⚔️ ${st.atk}  ❤️ ${st.hp}`;
+    box.style.boxShadow = `0 0 30px ${color}`;
+    if (['legendary','mythic'].includes(best.rarity)) toast(`🎉 WOW! ${rarity(best.rarity).name} ${best.name}!`);
+    rolling = false; save(); render();
+  }, 70);
+}
+
+// ---------- Pets ----------
+function toggleEquip(id) {
+  const i = S.equipped.indexOf(id);
+  if (i >= 0) S.equipped.splice(i, 1);
+  else if (S.equipped.length >= MAX_TEAM) return toast('Team is full (3). Unequip one first.');
+  else S.equipped.push(id);
+  save(); render();
+}
+function sellPet(id) {
+  if (S.equipped.includes(id)) return toast('Unequip this pet before selling.');
+  const p = S.pets.find(p => p.id === id);
+  const value = rarity(p.rarity).sell * p.level;
+  S.pets = S.pets.filter(x => x.id !== id); S.coins += value;
+  toast(`Sold ${p.name} for ${value} 🪙`); save(); render();
+}
+function autoEquip() {
+  S.equipped = [...S.pets].sort((a, b) => power(b) - power(a)).slice(0, MAX_TEAM).map(p => p.id);
+  save(); render();
+}
+function sellCommons() {
+  const sold = S.pets.filter(p => !S.equipped.includes(p.id) && ['common','uncommon'].includes(p.rarity));
+  if (!sold.length) return toast('Nothing to sell.');
+  const value = sold.reduce((s, p) => s + rarity(p.rarity).sell * p.level, 0);
+  S.pets = S.pets.filter(p => !sold.includes(p)); S.coins += value;
+  toast(`Sold ${sold.length} pets for ${value} 🪙`); save(); render();
+}
+
+// ---------- Battle ----------
+let battle = null;
+function makeMonster(stage) {
+  const boss = stage % 5 === 0;
+  const [emoji, name] = boss ? BOSSES[(stage / 5 - 1) % BOSSES.length] : MONSTERS[(stage - 1) % MONSTERS.length];
+  const scale = Math.pow(1.22, stage - 1) * (boss ? 2.2 : 1);
+  const hp = Math.round(40 * scale);
+  return { emoji, name: (boss ? '👑 ' : '') + name, boss, atk: Math.round(6 * scale * (boss ? 0.75 : 1)), hp, maxHp: hp };
+}
+function log(msg) { const l = $('log'); const p = document.createElement('p'); p.innerHTML = msg; l.appendChild(p); l.scrollTop = l.scrollHeight; }
+function teamPets() { return S.equipped.map(id => S.pets.find(p => p.id === id)).filter(Boolean); }
+
+function startFight() {
+  const team = teamPets();
+  if (!team.length) return toast('Equip at least one pet first!');
+  battle = {
+    monster: makeMonster(S.stage),
+    team: team.map(p => { const s = petStats(p); return { pet: p, atk: s.atk, hp: s.hp, maxHp: s.hp }; }),
+  };
+  $('log').innerHTML = '';
+  log(`<b>Stage ${S.stage}:</b> A wild ${battle.monster.emoji} ${battle.monster.name} appears!`);
+  renderBattle();
+  battle.timer = setInterval(turn, 650);
+  render();
+}
+function turn() {
+  const b = battle, m = b.monster;
+  // Pets attack
+  for (const f of b.team.filter(f => f.hp > 0)) {
+    const crit = Math.random() < 0.15, miss = Math.random() < 0.08;
+    if (miss) { log(`${f.pet.emoji} ${f.pet.name} missed!`); continue; }
+    const dmg = Math.round(f.atk * (0.85 + Math.random() * 0.3) * (crit ? 2 : 1));
+    m.hp = Math.max(0, m.hp - dmg);
+    log(`${f.pet.emoji} ${f.pet.name} hits for <b>${dmg}</b>${crit ? ' 💥 CRIT!' : ''}`);
+    if (m.hp <= 0) break;
+  }
+  if (m.hp <= 0) return endFight(true);
+  // Monster attacks a random living pet (bosses sometimes hit everyone)
+  const alive = b.team.filter(f => f.hp > 0);
+  const aoe = m.boss && Math.random() < 0.3;
+  for (const f of aoe ? alive : [pick(alive)]) {
+    const dmg = Math.round(m.atk * (0.85 + Math.random() * 0.3) * (aoe ? 0.6 : 1));
+    f.hp = Math.max(0, f.hp - dmg);
+    log(`${m.emoji} ${m.name} ${aoe ? 'slams everyone' : 'attacks ' + f.pet.name} for <b style="color:var(--bad)">${dmg}</b>${f.hp <= 0 ? ` — ${f.pet.name} fainted!` : ''}`);
+  }
+  renderBattle(true);
+  if (b.team.every(f => f.hp <= 0)) endFight(false);
+}
+function endFight(won, fled) {
+  clearInterval(battle.timer);
+  renderBattle();
+  if (won) {
+    const m = battle.monster;
+    const coins = Math.round((25 + S.stage * 12) * (m.boss ? 3 : 1));
+    const xp = Math.round((10 + S.stage * 4) * (m.boss ? 2 : 1));
+    S.coins += coins;
+    log(`<b style="color:var(--good)">Victory!</b> +${coins} 🪙, +${xp} XP to each pet.`);
+    for (const f of battle.team) {
+      const p = f.pet; p.xp += xp;
+      while (p.xp >= xpNeeded(p.level)) { p.xp -= xpNeeded(p.level); p.level++; log(`⬆️ ${p.emoji} ${p.name} reached level ${p.level}!`); }
+    }
+    S.stage++;
+  } else {
+    log(fled ? 'You ran away safely.' : `<b style="color:var(--bad)">Defeat...</b> Roll stronger pets or level up and try again!`);
+  }
+  battle = null; save(); render();
+}
+
+// ---------- Rendering ----------
+function petCard(p) {
+  const r = rarity(p.rarity), st = petStats(p), eq = S.equipped.includes(p.id);
+  return `<div class="card ${eq ? 'equipped' : ''}">
+    <div class="emoji">${p.emoji}</div>
+    <div class="name">${p.name} <span class="muted">Lv${p.level}</span></div>
+    <div class="rar" style="color:var(--${r.id})">${r.name}</div>
+    <div class="st">⚔️ ${st.atk} ❤️ ${st.hp}</div>
+    <div class="bar" title="XP"><i style="width:${p.xp / xpNeeded(p.level) * 100}%;background:var(--accent)"></i></div>
+    <div class="acts">
+      <button class="small ${eq ? 'ghost' : ''}" data-equip="${p.id}" ${battle ? 'disabled' : ''}>${eq ? 'Unequip' : 'Equip'}</button>
+      <button class="small ghost" data-sell="${p.id}" ${battle || eq ? 'disabled' : ''}>Sell ${r.sell * p.level}</button>
+    </div>
+  </div>`;
+}
+function fighterRow(emoji, name, sub, hp, maxHp, cls = '') {
+  return `<div class="fighter ${cls} ${hp <= 0 ? 'dead' : ''}">
+    <div class="emoji">${emoji}</div>
+    <div class="info"><b>${name}</b> <span class="muted">${sub}</span>
+      <div class="bar"><i style="width:${Math.max(0, hp / maxHp * 100)}%"></i></div>
+      <div class="muted">${hp} / ${maxHp}</div></div></div>`;
+}
+function renderBattle(shake) {
+  const team = battle ? battle.team : teamPets().map(p => { const s = petStats(p); return { pet: p, atk: s.atk, hp: s.hp, maxHp: s.hp }; });
+  $('teamSide').innerHTML = team.length
+    ? team.map(f => fighterRow(f.pet.emoji, f.pet.name, `Lv${f.pet.level} ⚔️${f.atk}`, f.hp, f.maxHp)).join('')
+    : '<p class="muted">No pets equipped.</p>';
+  const m = battle ? battle.monster : makeMonster(S.stage);
+  $('monsterSide').innerHTML = fighterRow(m.emoji, m.name, `⚔️${m.atk}`, m.hp, m.maxHp, 'monster' + (shake ? ' hit' : ''));
+}
+function render() {
+  $('coins').textContent = S.coins; $('stage').textContent = S.stage; $('rolls').textContent = S.rolls;
+  $('cost1').textContent = freeRoll() ? 'FREE' : ROLL_COST; $('cost10').textContent = ROLL_COST * 10;
+  $('roll1').disabled = rolling || (!freeRoll() && S.coins < ROLL_COST);
+  $('roll10').disabled = rolling || S.coins < ROLL_COST * 10;
+  $('pityText').textContent = `Guaranteed Epic or better in ${PITY - S.pity} rolls`;
+  const sorted = [...S.pets].sort((a, b) => (S.equipped.includes(b.id) - S.equipped.includes(a.id)) || power(b) - power(a));
+  $('petGrid').innerHTML = sorted.map(petCard).join('');
+  $('noPets').classList.toggle('hidden', S.pets.length > 0);
+  $('teamCount').textContent = S.equipped.length;
+  $('fightBtn').disabled = !!battle; $('fleeBtn').classList.toggle('hidden', !battle);
+  if (!battle) renderBattle();
+}
+const total = RARITIES.reduce((s, r) => s + r.weight, 0);
+$('odds').innerHTML = RARITIES.map(r => `<div><b style="color:var(--${r.id})">${r.name}</b> ${(r.weight / total * 100).toFixed(1)}%</div>`).join('');
+
+// ---------- Events ----------
+function showTab(name) {
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  ['roll','pets','battle'].forEach(t => $('tab-' + t).classList.toggle('hidden', t !== name));
+}
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+$('roll1').onclick = () => doRoll(1);
+$('roll10').onclick = () => doRoll(10);
+$('autoEquip').onclick = autoEquip;
+$('sellCommons').onclick = sellCommons;
+$('fightBtn').onclick = startFight;
+$('fleeBtn').onclick = () => battle && endFight(false, true);
+$('petGrid').onclick = e => {
+  const t = e.target.closest('button'); if (!t) return;
+  if (t.dataset.equip) toggleEquip(+t.dataset.equip);
+  if (t.dataset.sell) sellPet(+t.dataset.sell);
+};
+showTab('roll'); render();
+</script>
+</body>
+</html>
