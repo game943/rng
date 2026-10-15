@@ -1,6 +1,6 @@
 # 🎲 Pet Roll Arena
 
-A small browser RNG game: roll for pets, build a team of 3, and fight monsters.
+A small 3D browser RNG game (three.js): hatch pets from eggs, build a team of 3, and fight monsters in a torch-lit arena.
 
 Open `index.html` in any browser to play. Progress saves automatically in your browser.
 

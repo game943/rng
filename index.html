@@ -2,44 +2,54 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Pet Roll Arena</title>
 <style>
+  /* Layout: header bar, tab row, one panel per tab; 3D stage on top of each panel, controls and HUD below. */
   :root {
     --bg: #14121f; --panel: #1f1c30; --panel2: #2a2640; --text: #ece9ff; --muted: #9c97bd;
     --accent: #8b6cff; --good: #4ade80; --bad: #f87171; --gold: #facc15;
     --common: #b0b0b8; --uncommon: #4ade80; --rare: #60a5fa; --epic: #c084fc; --legendary: #fbbf24; --mythic: #f43f5e;
+    color-scheme: dark;
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, sans-serif; }
   header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--panel); border-bottom: 1px solid var(--panel2); }
   h1 { margin: 0; font-size: 20px; }
-  .stats { display: flex; gap: 14px; flex-wrap: wrap; font-weight: 600; }
+  .stats { display: flex; gap: 14px; flex-wrap: wrap; font-weight: 600; font-variant-numeric: tabular-nums; }
   .stats span b { color: var(--gold); }
-  nav { display: flex; gap: 6px; padding: 10px 16px; }
+  nav { display: flex; gap: 6px; padding: 10px 16px; max-width: 900px; margin: 0 auto; }
   nav button { flex: 1; }
   main { max-width: 900px; margin: 0 auto; padding: 0 16px 40px; }
   button { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 10px 14px; font: inherit; font-weight: 600; cursor: pointer; }
+  button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
   button:disabled { opacity: .45; cursor: not-allowed; }
   button.ghost { background: var(--panel2); }
   button.active { outline: 2px solid var(--text); }
   button.small { padding: 4px 8px; font-size: 13px; }
-  .panel { background: var(--panel); border-radius: 12px; padding: 16px; margin-top: 12px; }
+  .panel { background: var(--panel); border-radius: 12px; padding: 16px; margin-top: 4px; }
   .hidden { display: none !important; }
   .center { text-align: center; }
   .muted { color: var(--muted); font-size: 13px; }
 
+  /* 3D stages */
+  .stage3d { position: relative; width: 100%; height: 300px; border-radius: 12px; overflow: hidden; background: var(--bg); }
+  .stage3d.tall { height: 380px; }
+  @media (max-width: 600px) { .stage3d.tall { height: 340px; } }
+  .stage3d canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; }
+  .stage-label { position: absolute; left: 12px; top: 10px; font-weight: 700; font-size: 14px; background: #0009; padding: 4px 10px; border-radius: 999px; pointer-events: none; }
+  .fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 80px; }
+
   /* Roll */
-  .roll-box { height: 170px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 12px; background: var(--panel2); margin-bottom: 12px; transition: box-shadow .3s; }
-  .roll-emoji { font-size: 72px; line-height: 1; }
-  .roll-name { margin-top: 8px; font-size: 18px; font-weight: 700; }
+  .reveal { margin: 10px 0 12px; min-height: 48px; }
+  .roll-name { font-size: 18px; font-weight: 700; }
   .roll-btns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
   .odds { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; margin-top: 12px; }
   .odds div { background: var(--panel2); border-radius: 6px; padding: 6px 8px; font-size: 13px; }
 
   /* Pets */
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-  .card { background: var(--panel2); border-radius: 10px; padding: 10px; border: 2px solid transparent; position: relative; }
+  .card { background: var(--panel2); border-radius: 10px; padding: 10px; border: 2px solid transparent; }
   .card.equipped { border-color: var(--gold); }
   .card .emoji { font-size: 40px; text-align: center; }
   .card .name { font-weight: 700; text-align: center; }
@@ -48,26 +58,23 @@
   .card .acts { display: flex; gap: 4px; justify-content: center; margin-top: 6px; }
   .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
 
-  /* Battle */
-  .arena { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; }
-  @media (max-width: 600px) { .arena { grid-template-columns: 1fr; } .vs { display: none; } }
-  .fighter { background: var(--panel2); border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; display: flex; gap: 10px; align-items: center; }
+  /* Battle HUD */
+  .hud { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  @media (max-width: 600px) { .hud { grid-template-columns: 1fr; } }
+  .fighter { background: var(--panel2); border-radius: 10px; padding: 6px 10px; margin-bottom: 6px; display: flex; gap: 10px; align-items: center; }
   .fighter.dead { opacity: .35; }
-  .fighter .emoji { font-size: 32px; }
+  .fighter .emoji { font-size: 26px; }
   .fighter .info { flex: 1; min-width: 0; }
   .bar { height: 8px; background: #000a; border-radius: 4px; overflow: hidden; margin-top: 4px; }
   .bar > i { display: block; height: 100%; background: var(--good); transition: width .25s; }
   .monster .bar > i { background: var(--bad); }
-  .monster .emoji { font-size: 56px; }
-  .vs { font-size: 24px; font-weight: 800; color: var(--muted); }
-  .log { background: #0006; border-radius: 8px; padding: 8px 10px; height: 160px; overflow-y: auto; font-size: 13px; margin-top: 12px; }
+  .log { background: #0006; border-radius: 8px; padding: 8px 10px; height: 140px; overflow-y: auto; font-size: 13px; margin-top: 8px; }
   .log p { margin: 2px 0; }
-  .hit { animation: shake .25s; }
-  @keyframes shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
 
-  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--panel2); padding: 10px 16px; border-radius: 8px; box-shadow: 0 4px 20px #0008; opacity: 0; transition: opacity .3s; pointer-events: none; max-width: calc(100% - 32px); }
+  .toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--panel2); padding: 10px 16px; border-radius: 8px; box-shadow: 0 4px 20px #0008; opacity: 0; transition: opacity .3s; pointer-events: none; max-width: calc(100% - 32px); }
   .toast.show { opacity: 1; }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 <header>
@@ -88,9 +95,12 @@
 <main>
   <!-- ROLL -->
   <section id="tab-roll" class="panel">
-    <div class="roll-box" id="rollBox">
-      <div class="roll-emoji" id="rollEmoji">❔</div>
-      <div class="roll-name" id="rollName">Roll for a pet!</div>
+    <div class="stage3d" id="rollStage">
+      <canvas id="rollCanvas"></canvas>
+      <div class="fallback hidden" id="rollEmoji">🥚</div>
+    </div>
+    <div class="center reveal">
+      <div class="roll-name" id="rollName">Roll to hatch a pet!</div>
       <div class="muted" id="rollStats"></div>
     </div>
     <div class="roll-btns">
@@ -109,19 +119,23 @@
       <button class="small ghost" id="sellCommons">💰 Sell all unequipped Common/Uncommon</button>
     </div>
     <div class="grid" id="petGrid"></div>
-    <p class="muted center" id="noPets">No pets yet — go roll some!</p>
+    <p class="muted center" id="noPets">No pets yet. Go roll some!</p>
   </section>
 
   <!-- BATTLE -->
   <section id="tab-battle" class="panel hidden">
-    <div class="arena">
-      <div id="teamSide"></div>
-      <div class="vs">VS</div>
-      <div id="monsterSide"></div>
+    <div class="stage3d tall" id="battleStage">
+      <canvas id="battleCanvas"></canvas>
+      <div class="stage-label" id="stageLabel"></div>
     </div>
     <div class="roll-btns" style="margin-top:12px">
       <button id="fightBtn">⚔️ Fight!</button>
       <button id="fleeBtn" class="ghost hidden">🏃 Flee</button>
+      <button id="speedBtn" class="ghost">⏩ 1x</button>
+    </div>
+    <div class="hud">
+      <div id="teamSide"></div>
+      <div id="monsterSide"></div>
     </div>
     <div class="log" id="log"></div>
   </section>
@@ -151,6 +165,7 @@ const MONSTERS = [['👾','Blob'],['🦇','Bat'],['🕷️','Spider'],['🐍','V
 const BOSSES = [['🐲','Dragon King'],['👿','Demon Lord'],['🦑','Abyss Squid'],['☠️','Lich']];
 const ROLL_COST = 50, PITY = 50, MAX_TEAM = 3;
 const rarity = id => RARITIES.find(r => r.id === id);
+const rank = p => RARITIES.findIndex(r => r.id === p.rarity);
 
 // ---------- State ----------
 const SAVE_KEY = 'petRollArena.v1';
@@ -162,6 +177,9 @@ const save = () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } 
 const $ = id => document.getElementById(id);
 const rand = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let speed = 1;
+const sleep = ms => new Promise(r => setTimeout(r, ms / speed));
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2200); }
 
 function petStats(p) {
@@ -170,6 +188,324 @@ function petStats(p) {
 }
 const power = p => { const s = petStats(p); return s.atk * 3 + s.hp; };
 const xpNeeded = lvl => 20 + lvl * 15;
+
+// =====================================================================
+// 3D engine (three.js). Everything here is visual only; game rules live below.
+// =====================================================================
+const HAS3D = (() => { try { return !!window.THREE && !!document.createElement('canvas').getContext('webgl'); } catch (e) { return false; } })();
+const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue('--' + name).trim();
+
+// Tweens: tween(ms, k => ...) resolves when done. Durations shrink with battle speed.
+const tweens = [];
+const tween = (ms, fn) => new Promise(res => tweens.push({ t: 0, d: Math.max(1, ms / speed), fn, res }));
+const ease = {
+  out: k => 1 - Math.pow(1 - k, 3),
+  inOut: k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2,
+  back: k => { const c = 1.70158; return 1 + (c + 1) * Math.pow(k - 1, 3) + c * Math.pow(k - 1, 2); },
+};
+
+let roll3d, arena3d;
+if (HAS3D) {
+  const V3 = THREE.Vector3;
+  const col = name => new THREE.Color(cssVar(name));
+  const texCache = {};
+  function emojiTex(e) {
+    if (texCache[e]) return texCache[e];
+    const c = document.createElement('canvas'); c.width = c.height = 256;
+    const x = c.getContext('2d');
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.font = '190px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+    x.fillText(e, 128, 142);
+    return texCache[e] = new THREE.CanvasTexture(c);
+  }
+  function textSprite(text, color, h) {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 96;
+    const x = c.getContext('2d');
+    x.font = '800 64px system-ui,sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.lineWidth = 10; x.strokeStyle = '#000'; x.strokeText(text, 128, 50);
+    x.fillStyle = color; x.fillText(text, 128, 50);
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthTest: false }));
+    s.scale.set(h * 256 / 96, h, 1); s.renderOrder = 10;
+    return s;
+  }
+  const disposeSprite = s => { s.parent && s.parent.remove(s); if (s.material.map && !Object.values(texCache).includes(s.material.map)) s.material.map.dispose(); s.material.dispose(); };
+
+  function makeStage(canvas) {
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    const scene = new THREE.Scene();
+    scene.background = col('bg'); scene.fog = new THREE.Fog(col('bg'), 14, 32);
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+    const st = { canvas, renderer, scene, camera, effects: [], quake: 0, t: 0, w: 0, h: 0 };
+    st.resize = () => {
+      const w = canvas.clientWidth, h = canvas.clientHeight;
+      if (!w || !h || (w === st.w && h === st.h)) return;
+      st.w = w; st.h = h; renderer.setSize(w, h, false);
+      camera.aspect = w / h; camera.updateProjectionMatrix();
+    };
+    st.step = dt => {
+      st.t += dt;
+      st.effects = st.effects.filter(fx => fx(dt * speed));
+      st.update(dt);
+      if (st.quake > 0 && !REDUCED) {
+        camera.position.x += (Math.random() - .5) * st.quake; camera.position.y += (Math.random() - .5) * st.quake;
+        st.quake = Math.max(0, st.quake - dt * 1.2);
+      }
+      renderer.render(scene, camera);
+    };
+    return st;
+  }
+
+  // Particle burst that falls under gravity and fades out.
+  function burst(st, pos, color, n, spd) {
+    const geo = new THREE.BufferGeometry(), p = new Float32Array(n * 3), v = [];
+    for (let i = 0; i < n; i++) {
+      p.set([pos.x, pos.y, pos.z], i * 3);
+      v.push(new V3(Math.random() - .5, Math.random() * .9 + .1, Math.random() - .5).normalize().multiplyScalar(spd * (.4 + Math.random() * .6)));
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(p, 3));
+    const mat = new THREE.PointsMaterial({ color, size: .16, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+    const pts = new THREE.Points(geo, mat); st.scene.add(pts);
+    let life = 0;
+    st.effects.push(dt => {
+      life += dt;
+      for (let i = 0; i < n; i++) { v[i].y -= 7 * dt; p[i * 3] += v[i].x * dt; p[i * 3 + 1] += v[i].y * dt; p[i * 3 + 2] += v[i].z * dt; }
+      geo.attributes.position.needsUpdate = true; mat.opacity = Math.max(0, 1 - life);
+      if (life < 1) return true;
+      st.scene.remove(pts); geo.dispose(); mat.dispose(); return false;
+    });
+  }
+  function floatText(st, pos, text, color, h) {
+    const s = textSprite(text, color, h); s.position.copy(pos); st.scene.add(s);
+    let life = 0;
+    st.effects.push(dt => {
+      life += dt; s.position.y += dt * 1.3; s.material.opacity = Math.min(1, 2.5 * (1 - life));
+      if (life < 1) return true;
+      disposeSprite(s); return false;
+    });
+  }
+  function shockwave(st, pos, color) {
+    const m = new THREE.Mesh(new THREE.RingGeometry(.8, 1, 48), new THREE.MeshBasicMaterial({ color, transparent: true, side: THREE.DoubleSide, depthWrite: false }));
+    m.rotation.x = -Math.PI / 2; m.position.set(pos.x, .05, pos.z); st.scene.add(m);
+    let life = 0;
+    st.effects.push(dt => {
+      life += dt * 1.6; const s = 1 + life * 6; m.scale.set(s, s, 1); m.material.opacity = Math.max(0, 1 - life);
+      if (life < 1) return true;
+      st.scene.remove(m); m.geometry.dispose(); m.material.dispose(); return false;
+    });
+  }
+  function addLights(scene, shadowSize) {
+    scene.add(new THREE.HemisphereLight(0xc9c0ff, 0x1a1530, .75));
+    const key = new THREE.DirectionalLight(0xffffff, .85);
+    key.position.set(4, 9, 6); key.castShadow = true; key.shadow.mapSize.set(1024, 1024);
+    Object.assign(key.shadow.camera, { left: -shadowSize, right: shadowSize, top: shadowSize, bottom: -shadowSize });
+    scene.add(key);
+  }
+
+  // ---------- Roll scene: an egg on a pedestal that hatches ----------
+  roll3d = (() => {
+    const st = makeStage($('rollCanvas')), { scene, camera } = st;
+    addLights(scene, 5);
+    const glow = new THREE.PointLight(col('accent'), 1.4, 9); glow.position.set(0, 2.2, 1.8); scene.add(glow);
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(9, 48), new THREE.MeshStandardMaterial({ color: col('panel'), roughness: .95 }));
+    floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+    const ped = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.35, .5, 48), new THREE.MeshStandardMaterial({ color: col('panel2'), roughness: .45, metalness: .5 }));
+    ped.position.y = .25; ped.castShadow = ped.receiveShadow = true; scene.add(ped);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(1.12, .05, 8, 64), new THREE.MeshBasicMaterial({ color: col('accent') }));
+    rim.rotation.x = Math.PI / 2; rim.position.y = .5; scene.add(rim);
+    const egg = new THREE.Mesh(new THREE.SphereGeometry(.68, 40, 28), new THREE.MeshStandardMaterial({ color: 0xf3efff, roughness: .3, emissive: col('accent'), emissiveIntensity: .1 }));
+    egg.scale.set(1, 1.3, 1); egg.castShadow = true; scene.add(egg);
+    for (let i = 0; i < 7; i++) { // speckles on the shell
+      const sp = new THREE.Mesh(new THREE.SphereGeometry(.09, 12, 8), new THREE.MeshStandardMaterial({ color: col('accent'), roughness: .5 }));
+      const a = i * 2.4, y = (i / 7 - .45) * 1.1;
+      sp.position.set(Math.cos(a) * Math.sqrt(1 - y * y) * .66, y * .66, Math.sin(a) * Math.sqrt(1 - y * y) * .66); egg.add(sp);
+    }
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(.75, 1.15, 12, 40, 1, true),
+      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    beam.position.y = 6.5; scene.add(beam);
+    const pet = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, alphaTest: .1 })); pet.visible = false; scene.add(pet);
+    const ring = [];
+    let mode = 'idle', shakeT = 0;
+
+    st.update = dt => {
+      const t = st.t, fit = Math.max(1, 1.25 / camera.aspect);
+      camera.position.set(Math.sin(t * .25) * .7, 2.5, 6.4 * fit); camera.lookAt(0, 1.3, 0);
+      rim.material.color.copy(glow.color);
+      if (mode === 'idle') {
+        egg.position.y = 1.42 + Math.sin(t * 2) * .05; egg.rotation.y += dt * .6; egg.rotation.z = 0;
+      } else if (mode === 'shake') {
+        shakeT += dt * speed; const a = Math.min(1, shakeT);
+        egg.rotation.z = Math.sin(shakeT * 38) * .28 * a;
+        egg.position.y = 1.42 + Math.abs(Math.sin(shakeT * 19)) * .1 * a;
+        egg.material.emissive.setHSL((shakeT * .9) % 1, .85, .55); egg.material.emissiveIntensity = .1 + a * 1.1;
+        glow.color.copy(egg.material.emissive); glow.intensity = 1.4 + a * 2;
+      } else {
+        pet.position.y = 1.75 + Math.sin(t * 2) * .08;
+        beam.rotation.y += dt;
+        ring.forEach((s, i) => { const ang = t * .45 + i / ring.length * Math.PI * 2; s.position.set(Math.cos(ang) * 2.3, 1.05 + Math.sin(t * 2 + i) * .1, Math.sin(ang) * 2.3 - .2); });
+      }
+    };
+    st.shake = () => {
+      mode = 'shake'; shakeT = 0; egg.visible = true; pet.visible = false; beam.material.opacity = 0;
+      ring.splice(0).forEach(disposeSprite);
+    };
+    st.reveal = (best, results) => {
+      mode = 'reveal'; egg.visible = false;
+      const c = col(best.rarity), big = rank(best) >= 3;
+      glow.color.copy(c); glow.intensity = big ? 4 : 2;
+      burst(st, new V3(0, 1.4, 0), c, big ? 140 : 70, big ? 6.5 : 4.5);
+      if (big) { burst(st, new V3(0, 1.6, 0), col('gold'), 80, 8); st.quake = .35; }
+      pet.material.map = emojiTex(best.emoji); pet.material.needsUpdate = true; pet.visible = true; pet.scale.set(0, 0, 1);
+      tween(550, k => { const s = 1.9 * ease.back(k); pet.scale.set(s, s, 1); });
+      beam.material.color.copy(c);
+      tween(600, k => { beam.material.opacity = (big ? .45 : .22) * k; });
+      results.filter(r => r !== best).forEach(p => {
+        const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: emojiTex(p.emoji), transparent: true, alphaTest: .1 }));
+        s.scale.set(.75, .75, 1); scene.add(s); ring.push(s);
+      });
+      setTimeout(() => { egg.material.emissive.copy(col('accent')); egg.material.emissiveIntensity = .1; }, 50);
+    };
+    return st;
+  })();
+
+  // ---------- Battle arena ----------
+  arena3d = (() => {
+    const st = makeStage($('battleCanvas')), { scene, camera } = st;
+    addLights(scene, 9);
+    const ground = new THREE.Mesh(new THREE.CylinderGeometry(7, 7.4, .5, 72), new THREE.MeshStandardMaterial({ color: col('panel'), roughness: .9 }));
+    ground.position.y = -.25; ground.receiveShadow = true; scene.add(ground);
+    const tiles = new THREE.Mesh(new THREE.RingGeometry(1.4, 1.5, 64), new THREE.MeshBasicMaterial({ color: col('panel2'), side: THREE.DoubleSide }));
+    tiles.rotation.x = -Math.PI / 2; tiles.position.y = .01; scene.add(tiles);
+    const edge = new THREE.Mesh(new THREE.TorusGeometry(7, .07, 8, 96), new THREE.MeshBasicMaterial({ color: col('accent') }));
+    edge.rotation.x = Math.PI / 2; scene.add(edge);
+    const rockMat = new THREE.MeshStandardMaterial({ color: col('panel2'), roughness: 1, flatShading: true });
+    for (let i = 0; i < 16; i++) {
+      const a = i / 16 * Math.PI * 2 + .2, r = 8.6 + Math.random() * 1.5;
+      const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(.5 + Math.random() * .9), rockMat);
+      rock.position.set(Math.cos(a) * r, .2, Math.sin(a) * r); rock.rotation.set(Math.random() * 3, Math.random() * 3, 0); rock.castShadow = true;
+      scene.add(rock);
+    }
+    const torches = [[-5.4, -4.2], [5.4, -4.2]].map(([x, z]) => {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(.12, .16, 2.4, 10), new THREE.MeshStandardMaterial({ color: 0x3b3150 }));
+      post.position.set(x, 1.2, z); post.castShadow = true; scene.add(post);
+      const flame = new THREE.Mesh(new THREE.SphereGeometry(.22, 12, 10), new THREE.MeshBasicMaterial({ color: 0xffa04a }));
+      flame.position.set(x, 2.55, z); scene.add(flame);
+      const light = new THREE.PointLight(0xff8a3d, 1.3, 11); light.position.set(x, 2.8, z); scene.add(light);
+      return { flame, light };
+    });
+
+    const PET_POS = [[-1.4, -1.6], [-3.9, -.6], [-2.2, 1.9]], MON_POS = [2.9, 0];
+    let pets = [], monster = null, key = '';
+
+    function makeFighter(emoji, color, size, barColor) {
+      const g = new THREE.Group();
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(.5 * size, .62 * size, .22, 40),
+        new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: .3, roughness: .35, metalness: .35 }));
+      base.position.y = .11; base.castShadow = base.receiveShadow = true;
+      const body = new THREE.Group(); body.position.y = .22;
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: emojiTex(emoji), transparent: true, alphaTest: .1 }));
+      sprite.scale.set(1.25 * size, 1.25 * size, 1); sprite.position.y = .6 * size; body.add(sprite);
+      const w = .95 * Math.min(size, 1.6);
+      const barBg = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x000000, opacity: .65, transparent: true, depthTest: false }));
+      const barFill = new THREE.Sprite(new THREE.SpriteMaterial({ color: new THREE.Color(barColor), depthTest: false }));
+      barBg.scale.set(w + .08, .17, 1); barFill.center.set(0, .5); barFill.scale.set(w, .1, 1); barFill.position.x = -w / 2;
+      barBg.renderOrder = barFill.renderOrder = 5;
+      const bar = new THREE.Group(); bar.add(barBg, barFill); bar.position.y = .35 + 1.25 * size;
+      g.add(base, body, bar);
+      g.userData = { size, sprite, body, base, bar, barFill, w, flash: 0, jolt: 0, dead: false, phase: Math.random() * 6 };
+      return g;
+    }
+    const clear = f => { if (!f) return; scene.remove(f); f.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); };
+    const obj = id => id === 'm' ? monster : pets[id];
+
+    st.setup = (team, mon, force) => {
+      const k = team.map(f => f.pet.id + ':' + f.pet.level).join() + '|' + mon.name + mon.maxHp;
+      if (k === key && !force) return;
+      key = k; pets.forEach(clear); clear(monster);
+      pets = team.map((f, i) => {
+        const g = makeFighter(f.pet.emoji, col(f.pet.rarity), 1, cssVar('good'));
+        g.position.set(PET_POS[i][0], 0, PET_POS[i][1]); g.userData.home = g.position.clone(); scene.add(g); return g;
+      });
+      monster = makeFighter(mon.emoji, mon.boss ? col('mythic') : new THREE.Color(0x4a3d66), mon.boss ? 2.6 : 1.9, cssVar('bad'));
+      monster.position.set(MON_POS[0], 0, MON_POS[1]); monster.userData.home = monster.position.clone(); scene.add(monster);
+    };
+    st.setHp = (id, frac) => { const u = obj(id).userData; u.barFill.scale.x = u.w * Math.max(0, frac); };
+    st.lunge = async (from, to, impact) => {
+      const a = obj(from), b = obj(to), home = a.userData.home.clone();
+      const dir = b.position.clone().sub(home).setY(0), dist = dir.length();
+      const end = home.clone().add(dir.normalize().multiplyScalar(Math.max(0, dist - .9 * (a.userData.size + b.userData.size))));
+      await tween(220, k => { a.position.lerpVectors(home, end, ease.inOut(k)); a.position.y = Math.sin(k * Math.PI) * .7; });
+      impact();
+      await tween(260, k => { a.position.lerpVectors(end, home, ease.out(k)); a.position.y = 0; });
+    };
+    st.hit = (id, dmg, crit) => {
+      const f = obj(id), u = f.userData;
+      u.flash = 1; u.jolt = .3;
+      const top = f.position.clone().add(new V3(0, 1.4 * u.size + .4, 0));
+      floatText(st, top, crit ? dmg + '!' : String(dmg), crit ? cssVar('gold') : '#ffffff', crit ? .85 : .6);
+      burst(st, f.position.clone().add(new V3(0, .7 * u.size, 0)), crit ? col('gold') : new THREE.Color(0xffffff), crit ? 45 : 14, crit ? 5 : 3);
+      if (crit) st.quake = .25;
+    };
+    st.miss = id => { const f = obj(id); floatText(st, f.position.clone().add(new V3(0, 1.4 * f.userData.size + .4, 0)), 'MISS', cssVar('muted'), .5); };
+    st.faint = id => {
+      const u = obj(id).userData; u.dead = true; u.bar.visible = false;
+      tween(450, k => { u.sprite.material.rotation = k * Math.PI / 2; u.sprite.material.opacity = 1 - k * .65; u.body.position.y = .22 - k * .2 * u.size; });
+    };
+    st.slam = async impact => {
+      const m = monster;
+      await tween(380, k => { m.position.y = Math.sin(k * Math.PI) * 2.2; });
+      shockwave(st, m.position, col('bad')); st.quake = .4; impact();
+      await sleep(200);
+    };
+    st.die = async id => {
+      const f = obj(id), u = f.userData; u.dead = true; u.bar.visible = false;
+      burst(st, f.position.clone().add(new V3(0, .8 * u.size, 0)), col('gold'), 90, 6);
+      await tween(600, k => { const s = 1.25 * u.size * (1 - k); u.sprite.scale.set(s, s, 1); u.sprite.material.rotation = k * 6; });
+      f.visible = false;
+    };
+    st.update = dt => {
+      const t = st.t, dist = 10 * Math.max(1, 1.2 / camera.aspect);
+      camera.position.set(Math.sin(t * .15) * .9, .55 * dist, dist); camera.lookAt(0, .7, 0);
+      torches.forEach((tc, i) => { const f = 1 + Math.sin(t * 13 + i * 4) * .12 + Math.random() * .1; tc.light.intensity = 1.3 * f; tc.flame.scale.setScalar(f); });
+      edge.material.color.copy(monster && monster.userData.size > 2 ? col('mythic') : col('accent'));
+      [...pets, monster].forEach(g => {
+        if (!g) return; const u = g.userData;
+        if (!u.dead) u.body.position.y = .22 + Math.abs(Math.sin(t * 3 + u.phase)) * .08;
+        u.sprite.position.x = u.jolt > 0 ? Math.sin(t * 90) * .1 : 0; u.jolt = Math.max(0, u.jolt - dt);
+        u.flash = Math.max(0, u.flash - dt * 3); u.sprite.material.color.setRGB(1, 1 - u.flash * .7, 1 - u.flash * .7);
+        u.base.rotation.y += dt * .4;
+      });
+    };
+    return st;
+  })();
+
+  let last = performance.now();
+  (function loop(now) {
+    const dt = Math.min(.05, (now - last) / 1000); last = now;
+    for (const tw of tweens.slice()) {
+      tw.t += dt * 1000; const k = Math.min(1, tw.t / tw.d); tw.fn(k);
+      if (k >= 1) { tweens.splice(tweens.indexOf(tw), 1); tw.res(); }
+    }
+    for (const st of [roll3d, arena3d]) if (st.canvas.offsetParent !== null) { st.resize(); st.step(dt); }
+    requestAnimationFrame(loop);
+  })(last);
+} else {
+  // No WebGL: keep the game playable with flat emoji visuals.
+  $('rollEmoji').classList.remove('hidden');
+  const noop = () => {};
+  roll3d = { shake: () => { $('rollEmoji').textContent = '🥚'; }, reveal: best => { $('rollEmoji').textContent = best.emoji; } };
+  arena3d = {
+    setup: noop, setHp: noop, hit: noop, miss: noop, faint: noop,
+    lunge: (a, b, impact) => sleep(200).then(impact).then(() => sleep(200)),
+    slam: impact => sleep(300).then(impact), die: () => sleep(300),
+  };
+  $('battleStage').classList.add('hidden');
+}
+
+// =====================================================================
+// Game logic
+// =====================================================================
 
 // ---------- Rolling ----------
 function rollRarity(forceEpic) {
@@ -199,26 +535,18 @@ function doRoll(count) {
   if (!free && S.coins < cost) return toast('Not enough coins! Fight monsters to earn more.');
   if (!free) S.coins -= cost;
   rolling = true; render();
-  const box = $('rollBox'), all = Object.values(PETS).flat();
-  box.style.boxShadow = 'none'; $('rollName').textContent = 'Rolling...'; $('rollStats').textContent = '';
-  let ticks = 0;
-  const spin = setInterval(() => {
-    $('rollEmoji').textContent = pick(all)[0];
-    if (++ticks < 14) return;
-    clearInterval(spin);
+  $('rollName').textContent = 'Hatching...'; $('rollStats').textContent = '';
+  roll3d.shake();
+  setTimeout(() => {
     const results = Array.from({ length: count }, makePet);
-    const best = results.reduce((a, b) => RARITIES.findIndex(r => r.id === b.rarity) > RARITIES.findIndex(r => r.id === a.rarity) ? b : a);
-    const color = `var(--${best.rarity})`;
-    $('rollEmoji').textContent = best.emoji;
-    $('rollName').innerHTML = `<span style="color:${color}">${rarity(best.rarity).name} ${best.name}</span>`;
+    const best = results.reduce((a, b) => rank(b) > rank(a) ? b : a);
+    roll3d.reveal(best, results);
+    $('rollName').innerHTML = `<span style="color:var(--${best.rarity})">${rarity(best.rarity).name} ${best.name}</span>`;
     const st = petStats(best);
-    $('rollStats').textContent = count > 1
-      ? results.map(p => p.emoji).join(' ')
-      : `⚔️ ${st.atk}  ❤️ ${st.hp}`;
-    box.style.boxShadow = `0 0 30px ${color}`;
-    if (['legendary','mythic'].includes(best.rarity)) toast(`🎉 WOW! ${rarity(best.rarity).name} ${best.name}!`);
+    $('rollStats').textContent = count > 1 ? 'Also hatched: ' + results.filter(p => p !== best).map(p => p.emoji).join(' ') : `⚔️ ${st.atk}  ❤️ ${st.hp}`;
+    if (rank(best) >= 4) toast(`🎉 WOW! ${rarity(best.rarity).name} ${best.name}!`);
     rolling = false; save(); render();
-  }, 70);
+  }, REDUCED ? 300 : 1100);
 }
 
 // ---------- Pets ----------
@@ -259,53 +587,70 @@ function makeMonster(stage) {
 }
 function log(msg) { const l = $('log'); const p = document.createElement('p'); p.innerHTML = msg; l.appendChild(p); l.scrollTop = l.scrollHeight; }
 function teamPets() { return S.equipped.map(id => S.pets.find(p => p.id === id)).filter(Boolean); }
+const freshTeam = () => teamPets().map(p => { const s = petStats(p); return { pet: p, atk: s.atk, hp: s.hp, maxHp: s.hp }; });
 
 function startFight() {
-  const team = teamPets();
-  if (!team.length) return toast('Equip at least one pet first!');
-  battle = {
-    monster: makeMonster(S.stage),
-    team: team.map(p => { const s = petStats(p); return { pet: p, atk: s.atk, hp: s.hp, maxHp: s.hp }; }),
-  };
+  if (!teamPets().length) return toast('Equip at least one pet first!');
+  const b = battle = { monster: makeMonster(S.stage), team: freshTeam() };
   $('log').innerHTML = '';
-  log(`<b>Stage ${S.stage}:</b> A wild ${battle.monster.emoji} ${battle.monster.name} appears!`);
-  renderBattle();
-  battle.timer = setInterval(turn, 650);
+  log(`<b>Stage ${S.stage}:</b> A wild ${b.monster.emoji} ${b.monster.name} appears!`);
+  arena3d.setup(b.team, b.monster, true);
   render();
+  runBattle(b);
 }
-function turn() {
-  const b = battle, m = b.monster;
-  // Pets attack
-  for (const f of b.team.filter(f => f.hp > 0)) {
-    const crit = Math.random() < 0.15, miss = Math.random() < 0.08;
-    if (miss) { log(`${f.pet.emoji} ${f.pet.name} missed!`); continue; }
-    const dmg = Math.round(f.atk * (0.85 + Math.random() * 0.3) * (crit ? 2 : 1));
-    m.hp = Math.max(0, m.hp - dmg);
-    log(`${f.pet.emoji} ${f.pet.name} hits for <b>${dmg}</b>${crit ? ' 💥 CRIT!' : ''}`);
-    if (m.hp <= 0) break;
+async function runBattle(b) {
+  const m = b.monster, A = arena3d;
+  await sleep(350);
+  while (battle === b) {
+    // Each living pet attacks the monster in turn.
+    for (let i = 0; i < b.team.length; i++) {
+      const f = b.team[i];
+      if (f.hp <= 0) continue;
+      if (battle !== b) return;
+      const crit = Math.random() < 0.15, miss = Math.random() < 0.08;
+      const dmg = Math.round(f.atk * (0.85 + Math.random() * 0.3) * (crit ? 2 : 1));
+      await A.lunge(i, 'm', () => {
+        if (battle !== b) return;
+        if (miss) { A.miss('m'); return log(`${f.pet.emoji} ${f.pet.name} missed!`); }
+        m.hp = Math.max(0, m.hp - dmg);
+        A.hit('m', dmg, crit); A.setHp('m', m.hp / m.maxHp);
+        log(`${f.pet.emoji} ${f.pet.name} hits for <b>${dmg}</b>${crit ? ' 💥 CRIT!' : ''}`);
+        renderHud();
+      });
+      if (battle !== b) return;
+      if (m.hp <= 0) { await A.die('m'); return endFight(b, true); }
+      await sleep(90);
+    }
+    if (battle !== b) return;
+    await sleep(220);
+    // Monster strikes back: one target, or bosses sometimes slam everyone.
+    const alive = b.team.map((f, i) => i).filter(i => b.team[i].hp > 0);
+    const aoe = m.boss && Math.random() < 0.3;
+    const strike = i => {
+      const f = b.team[i];
+      const dmg = Math.round(m.atk * (0.85 + Math.random() * 0.3) * (aoe ? 0.6 : 1));
+      f.hp = Math.max(0, f.hp - dmg);
+      A.hit(i, dmg, false); A.setHp(i, f.hp / f.maxHp);
+      log(`${m.emoji} ${m.name} ${aoe ? 'slams' : 'attacks'} ${f.pet.name} for <b style="color:var(--bad)">${dmg}</b>${f.hp <= 0 ? ` and ${f.pet.name} fainted!` : ''}`);
+      if (f.hp <= 0) A.faint(i);
+    };
+    if (aoe) { log(`${m.emoji} ${m.name} leaps into the air!`); await A.slam(() => battle === b && alive.forEach(strike)); }
+    else { const i = pick(alive); await A.lunge('m', i, () => battle === b && strike(i)); }
+    if (battle !== b) return;
+    renderHud();
+    if (b.team.every(f => f.hp <= 0)) { await sleep(500); return endFight(b, false); }
+    await sleep(260);
   }
-  if (m.hp <= 0) return endFight(true);
-  // Monster attacks a random living pet (bosses sometimes hit everyone)
-  const alive = b.team.filter(f => f.hp > 0);
-  const aoe = m.boss && Math.random() < 0.3;
-  for (const f of aoe ? alive : [pick(alive)]) {
-    const dmg = Math.round(m.atk * (0.85 + Math.random() * 0.3) * (aoe ? 0.6 : 1));
-    f.hp = Math.max(0, f.hp - dmg);
-    log(`${m.emoji} ${m.name} ${aoe ? 'slams everyone' : 'attacks ' + f.pet.name} for <b style="color:var(--bad)">${dmg}</b>${f.hp <= 0 ? ` — ${f.pet.name} fainted!` : ''}`);
-  }
-  renderBattle(true);
-  if (b.team.every(f => f.hp <= 0)) endFight(false);
 }
-function endFight(won, fled) {
-  clearInterval(battle.timer);
-  renderBattle();
+function endFight(b, won, fled) {
+  if (battle !== b) return;
   if (won) {
-    const m = battle.monster;
+    const m = b.monster;
     const coins = Math.round((25 + S.stage * 12) * (m.boss ? 3 : 1));
     const xp = Math.round((10 + S.stage * 4) * (m.boss ? 2 : 1));
     S.coins += coins;
     log(`<b style="color:var(--good)">Victory!</b> +${coins} 🪙, +${xp} XP to each pet.`);
-    for (const f of battle.team) {
+    for (const f of b.team) {
       const p = f.pet; p.xp += xp;
       while (p.xp >= xpNeeded(p.level)) { p.xp -= xpNeeded(p.level); p.level++; log(`⬆️ ${p.emoji} ${p.name} reached level ${p.level}!`); }
     }
@@ -313,7 +658,7 @@ function endFight(won, fled) {
   } else {
     log(fled ? 'You ran away safely.' : `<b style="color:var(--bad)">Defeat...</b> Roll stronger pets or level up and try again!`);
   }
-  battle = null; save(); render();
+  battle = null; save(); render(!!fled);
 }
 
 // ---------- Rendering ----------
@@ -338,15 +683,17 @@ function fighterRow(emoji, name, sub, hp, maxHp, cls = '') {
       <div class="bar"><i style="width:${Math.max(0, hp / maxHp * 100)}%"></i></div>
       <div class="muted">${hp} / ${maxHp}</div></div></div>`;
 }
-function renderBattle(shake) {
-  const team = battle ? battle.team : teamPets().map(p => { const s = petStats(p); return { pet: p, atk: s.atk, hp: s.hp, maxHp: s.hp }; });
+function renderHud() {
+  const team = battle ? battle.team : freshTeam();
+  const m = battle ? battle.monster : makeMonster(S.stage);
   $('teamSide').innerHTML = team.length
     ? team.map(f => fighterRow(f.pet.emoji, f.pet.name, `Lv${f.pet.level} ⚔️${f.atk}`, f.hp, f.maxHp)).join('')
-    : '<p class="muted">No pets equipped.</p>';
-  const m = battle ? battle.monster : makeMonster(S.stage);
-  $('monsterSide').innerHTML = fighterRow(m.emoji, m.name, `⚔️${m.atk}`, m.hp, m.maxHp, 'monster' + (shake ? ' hit' : ''));
+    : '<p class="muted">No pets equipped. Equip some on the Pets tab.</p>';
+  $('monsterSide').innerHTML = fighterRow(m.emoji, m.name, `⚔️${m.atk}`, m.hp, m.maxHp, 'monster');
+  $('stageLabel').textContent = `Stage ${S.stage}${m.boss ? ' · BOSS' : ''}`;
+  return { team, m };
 }
-function render() {
+function render(resetArena) {
   $('coins').textContent = S.coins; $('stage').textContent = S.stage; $('rolls').textContent = S.rolls;
   $('cost1').textContent = freeRoll() ? 'FREE' : ROLL_COST; $('cost10').textContent = ROLL_COST * 10;
   $('roll1').disabled = rolling || (!freeRoll() && S.coins < ROLL_COST);
@@ -357,7 +704,8 @@ function render() {
   $('noPets').classList.toggle('hidden', S.pets.length > 0);
   $('teamCount').textContent = S.equipped.length;
   $('fightBtn').disabled = !!battle; $('fleeBtn').classList.toggle('hidden', !battle);
-  if (!battle) renderBattle();
+  const { team, m } = renderHud();
+  if (!battle) arena3d.setup(team, m, resetArena);
 }
 const total = RARITIES.reduce((s, r) => s + r.weight, 0);
 $('odds').innerHTML = RARITIES.map(r => `<div><b style="color:var(--${r.id})">${r.name}</b> ${(r.weight / total * 100).toFixed(1)}%</div>`).join('');
@@ -373,7 +721,8 @@ $('roll10').onclick = () => doRoll(10);
 $('autoEquip').onclick = autoEquip;
 $('sellCommons').onclick = sellCommons;
 $('fightBtn').onclick = startFight;
-$('fleeBtn').onclick = () => battle && endFight(false, true);
+$('fleeBtn').onclick = () => battle && endFight(battle, false, true);
+$('speedBtn').onclick = () => { speed = speed >= 3 ? 1 : speed + 1; $('speedBtn').textContent = `⏩ ${speed}x`; };
 $('petGrid').onclick = e => {
   const t = e.target.closest('button'); if (!t) return;
   if (t.dataset.equip) toggleEquip(+t.dataset.equip);
